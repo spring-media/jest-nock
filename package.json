@@ -1,0 +1,18 @@
+{
+  "name": "jest-nock",
+  "version": "0.1.0",
+  "description": "Nock integration for Jest",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:spring-media/jest-nock.git"
+  },
+  "author": "Sebastian Herrlinger",
+  "license": "MIT",
+  "peerDependencies": {
+    "nock": "^10.0.1"
+  }
+}
