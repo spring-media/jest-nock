@@ -1,6 +1,10 @@
 # jest-nock
 _Automate request traffic recording and replay for tests._
 
+
+![GitHub](https://img.shields.io/github/license/mashape/apistatus.svg)
+[![npm version](https://badge.fury.io/js/jest-nock.svg)](https://badge.fury.io/js/jest-nock)
+
 Instead of mocking requests or setting up nock for every test manually,
 this setup allows to mark tests that make requests to other systems and
 automatically record and replay requests made during a test run.
@@ -15,6 +19,10 @@ it.nock('uses some method that makes requests to external services', () => {
 ```
 
 ## Install
+```
+yarn add jest-nock
+```
+
 To use `jest-nock` with yout jest setup, add it to your [testFramework file setup](https://jestjs.io/docs/en/configuration.html#setuptestframeworkscriptfile-string) as follows:
 ```js
 const { upgradeJasmine } = require('jest-nock');
