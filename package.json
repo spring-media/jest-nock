@@ -1,6 +1,6 @@
 {
   "name": "jest-nock",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Nock integration for Jest",
   "main": "index.js",
   "scripts": {
@@ -14,5 +14,8 @@
   "license": "MIT",
   "peerDependencies": {
     "nock": "^10.0.1"
+  },
+  "dependencies": {
+    "mkdirp": "^0.5.1"
   }
 }
