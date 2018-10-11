@@ -7,7 +7,7 @@ automatically record and replay requests made during a test run.
 After recording the requests for your test suite, it will never make real network requests again, so you don't need these external systems available during a test run and your test suite will run much faster, while still ensuring your project integrates well will the used APIs.
 
 ## Example
-```
+```js
 it.nock('uses some method that makes requests to external services', () => {
     const result = await makeSomeRequestsAndCombineThem();
     expect(result).toBe(derivate);
@@ -16,7 +16,7 @@ it.nock('uses some method that makes requests to external services', () => {
 
 ## Install
 To use `jest-nock` with yout jest setup, add it to your [testFramework file setup](https://jestjs.io/docs/en/configuration.html#setuptestframeworkscriptfile-string) as follows:
-```
+```js
 const { upgradeJasmine } = require('jest-nock');
 
 upgradeJasmine(jasmine, global);
