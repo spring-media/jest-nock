@@ -25,9 +25,7 @@ function beforeTest (nockFilePath, nockOptions) {
 
       nock.define(defs);
     }
-    
     nock.disableNetConnect();
-    
     if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
       nockOptions.enableNetConnect.forEach(stringOrRegEx => nock.enableNetConnect(stringOrRegEx));
     }
@@ -70,7 +68,7 @@ const bindNock = (fn, testPath, overrideTitle) => {
 
     const { dir, name } = path.parse(testPath);
 
-    const nockFileName = `${name}_${djb2title)}.nock.json`;
+    const nockFileName = `${name}_${djb2(title)}.nock.json`;
     const nockFileDir = path.resolve(dir, subPathName);
     const nockFilePath = path.join(nockFileDir, nockFileName);
 
@@ -107,7 +105,7 @@ const bindNock = (fn, testPath, overrideTitle) => {
   };
 };
 
-function djb2(str) {
+function djb2 (str) {
   let hash = 5381;
 
   for (let i = str.length; i >= 0; --i) {
