@@ -35,6 +35,7 @@ function beforeTest (nockFilePath, nockOptions) {
 function afterTest (nockFileDir, nockFilePath) {
   if (process.env.JEST_NOCK_RECORD === 'true') {
     const recording = nock.recorder.play();
+    nock.recorder.clear();
 
     if (recording.length === 0) {
       nock.restore();
@@ -45,9 +46,9 @@ function afterTest (nockFileDir, nockFilePath) {
       mkdirp.sync(nockFileDir);
     }
     fs.writeFileSync(nockFilePath, JSON.stringify(recording, null, 2));
-
-    nock.restore();
   }
+
+  nock.restore();
   nock.enableNetConnect();
 }
 
