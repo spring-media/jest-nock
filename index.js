@@ -22,10 +22,10 @@ function beforeTest (nockFilePath, nockOptions) {
   } else {
     if (fs.existsSync(nockFilePath)) {
       const defs = nock.loadDefs(nockFilePath);
-
       nock.define(defs);
     }
     nock.disableNetConnect();
+
     if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
       nockOptions.enableNetConnect.forEach(stringOrRegEx => nock.enableNetConnect(stringOrRegEx));
     }
@@ -36,9 +36,9 @@ function afterTest (nockFileDir, nockFilePath) {
   if (process.env.JEST_NOCK_RECORD === 'true') {
     const recording = nock.recorder.play();
     nock.recorder.clear();
+    nock.restore();
 
     if (recording.length === 0) {
-      nock.restore();
       return;
     }
 
@@ -48,21 +48,27 @@ function afterTest (nockFileDir, nockFilePath) {
     fs.writeFileSync(nockFilePath, JSON.stringify(recording, null, 2));
   }
 
-  nock.restore();
+  nock.cleanAll();
   nock.enableNetConnect();
+}
+
+const getNockOptions = (args) => {
+  let nockOptions = args[2];
+  if (typeof args[0] === 'function') {
+    nockOptions = args[1];
+  }
+  return nockOptions;
 }
 
 const bindNock = (fn, testPath, overrideTitle) => {
   return function (...args) {
     let title = args[0];
     let testFn = args[1];
-    let nockOptions = args[2];
     const fnArgs = [];
 
     if (typeof args[0] === 'function') {
       title = overrideTitle || 'default';
       testFn = args[0];
-      nockOptions = args[1];
     } else {
       fnArgs.push(title);
     }
@@ -77,6 +83,8 @@ const bindNock = (fn, testPath, overrideTitle) => {
 
     if (testFn.length >= 1) {
       wrappedTest = done => {
+        const nockOptions = getNockOptions(args);
+
         beforeTest(nockFilePath, nockOptions);
         const wrappedDone = err => {
           afterTest(nockFileDir, nockFilePath);
@@ -87,6 +95,8 @@ const bindNock = (fn, testPath, overrideTitle) => {
       };
     } else {
       wrappedTest = async (...testArgs) => {
+        const nockOptions = getNockOptions(args);
+
         beforeTest(nockFilePath, nockOptions);
         try {
           const result = await testFn(...testArgs);
