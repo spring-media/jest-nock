@@ -23,7 +23,7 @@ it.nock('uses some method that makes requests to external services', () => {
 yarn add jest-nock
 ```
 
-To use `jest-nock` with yout jest setup, add it to your [testFramework file setup](https://jestjs.io/docs/en/configuration.html#setuptestframeworkscriptfile-string) as follows:
+To use `jest-nock` with your jest setup, add it to your [testFramework file setup](https://jestjs.io/docs/en/configuration.html#setuptestframeworkscriptfile-string) as follows:
 ```js
 const { upgradeJasmine } = require('jest-nock');
 
