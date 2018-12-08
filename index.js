@@ -32,7 +32,7 @@ function beforeTest (nockFilePath, nockOptions) {
   }
 }
 
-function afterTest (nockFileDir, nockFilePath, nockOptions) {
+function afterTest (nockFileDir, nockFilePath, nockOptions, { relativeTestPath, title }) {
   if (process.env.JEST_NOCK_RECORD === 'true') {
     let recording = nock.recorder.play();
     nock.recorder.clear();
@@ -46,6 +46,7 @@ function afterTest (nockFileDir, nockFilePath, nockOptions) {
     }
 
     if (recording.length === 0) {
+      console.warn(`jest-nock: Empty recording for "${title}" in "${relativeTestPath}".`)
       return;
     }
 
@@ -81,6 +82,10 @@ const bindNock = (fn, testPath, overrideTitle) => {
     }
 
     const { dir, name } = path.parse(testPath);
+    const afterTestInfo = {
+      relativeTestPath: path.relative(process.cwd(), testPath),
+      title
+    };
 
     const nockFileName = `${name}_${djb2(title)}.nock.json`;
     const nockFileDir = path.resolve(dir, subPathName);
@@ -94,7 +99,7 @@ const bindNock = (fn, testPath, overrideTitle) => {
 
         beforeTest(nockFilePath, nockOptions);
         const wrappedDone = err => {
-          afterTest(nockFileDir, nockFilePath, nockOptions);
+          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
           done(err);
         };
 
@@ -108,10 +113,10 @@ const bindNock = (fn, testPath, overrideTitle) => {
         try {
           const result = await testFn(...testArgs);
 
-          afterTest(nockFileDir, nockFilePath, nockOptions);
+          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
           return result;
         } catch (err) {
-          afterTest(nockFileDir, nockFilePath, nockOptions);
+          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
           throw err;
         }
       };
