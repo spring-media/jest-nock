@@ -1,6 +1,6 @@
 {
   "name": "jest-nock",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Nock integration for Jest",
   "main": "index.js",
   "scripts": {
