@@ -32,14 +32,21 @@ function beforeTest (nockFilePath, nockOptions) {
   }
 }
 
-function afterTest (nockFileDir, nockFilePath) {
+function afterTest (nockFileDir, nockFilePath, nockOptions) {
   if (process.env.JEST_NOCK_RECORD === 'true') {
-    const recording = nock.recorder.play();
+    let recording = nock.recorder.play();
     nock.recorder.clear();
     nock.restore();
 
     if (recording.length === 0) {
       return;
+    }
+
+    if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
+      recording = recording
+        .filter((item) => nockOptions.enableNetConnect
+          .find((enabled) => !item.scope.match(enabled))
+        )
     }
 
     if (!fs.existsSync(nockFileDir)) {
@@ -87,7 +94,7 @@ const bindNock = (fn, testPath, overrideTitle) => {
 
         beforeTest(nockFilePath, nockOptions);
         const wrappedDone = err => {
-          afterTest(nockFileDir, nockFilePath);
+          afterTest(nockFileDir, nockFilePath, nockOptions);
           done(err);
         };
 
@@ -101,10 +108,10 @@ const bindNock = (fn, testPath, overrideTitle) => {
         try {
           const result = await testFn(...testArgs);
 
-          afterTest(nockFileDir, nockFilePath);
+          afterTest(nockFileDir, nockFilePath, nockOptions);
           return result;
         } catch (err) {
-          afterTest(nockFileDir, nockFilePath);
+          afterTest(nockFileDir, nockFilePath, nockOptions);
           throw err;
         }
       };
