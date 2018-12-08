@@ -38,15 +38,15 @@ function afterTest (nockFileDir, nockFilePath, nockOptions) {
     nock.recorder.clear();
     nock.restore();
 
-    if (recording.length === 0) {
-      return;
-    }
-
     if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
       recording = recording
         .filter((item) => nockOptions.enableNetConnect
           .find((enabled) => !item.scope.match(enabled))
         )
+    }
+
+    if (recording.length === 0) {
+      return;
     }
 
     if (!fs.existsSync(nockFileDir)) {
