@@ -61,22 +61,20 @@ function afterTest (nockFileDir, nockFilePath, nockOptions, { relativeTestPath, 
 }
 
 const getNockOptions = (args) => {
-  let nockOptions = args[2];
-  if (typeof args[0] === 'function') {
-    nockOptions = args[1];
-  }
-  return nockOptions;
+  return args[args.length - 1];
 }
 
 const bindNock = (fn, testPath, overrideTitle) => {
   return function (...args) {
     let title = args[0];
     let testFn = args[1];
+    let timeout = args[2];
     const fnArgs = [];
 
     if (typeof args[0] === 'function') {
       title = overrideTitle || 'default';
       testFn = args[0];
+      timeout = args[1];
     } else {
       fnArgs.push(title);
     }
@@ -123,6 +121,9 @@ const bindNock = (fn, testPath, overrideTitle) => {
     }
 
     fnArgs.push(wrappedTest);
+    if (typeof timeout === 'number') {
+      fnArgs.push(timeout);
+    }
 
     return fn(...fnArgs);
   };
