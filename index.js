@@ -12,7 +12,9 @@ const mkdirp = require('mkdirp');
 const subPathName = '__nocks__';
 
 function beforeTest (nockFilePath, nockOptions) {
-  if (process.env.JEST_NOCK_RECORD === 'true') {
+  let altName = (nockOptions && nockOptions.nockFileName) ? nockOptions.nockFileName : null;
+  
+  if (!altName && (process.env.JEST_NOCK_RECORD === 'true')) { // if alt-name don't record => read-only
     nock.recorder.rec({
       /* eslint-disable camelcase */
       dont_print: true,
@@ -20,8 +22,10 @@ function beforeTest (nockFilePath, nockOptions) {
       /* eslint-enable camelcase */
     });
   } else {
-    if (fs.existsSync(nockFilePath)) {
-      const defs = nock.loadDefs(nockFilePath);
+    const nfp = nockFilePath(altName);
+    console.log(`reading nock test: ${nfp}`);
+    if (fs.existsSync(nfp)) {
+      const defs = nock.loadDefs(nfp);
       nock.define(defs);
     }
     nock.disableNetConnect();
@@ -33,7 +37,9 @@ function beforeTest (nockFilePath, nockOptions) {
 }
 
 function afterTest (nockFileDir, nockFilePath, nockOptions, { relativeTestPath, title }) {
-  if (process.env.JEST_NOCK_RECORD === 'true') {
+  let altName = (nockOptions && nockOptions.nockFileName) ? nockOptions.nockFileName : null;
+  
+  if (!altName && (process.env.JEST_NOCK_RECORD === 'true')) { // if alt-name we didn't record => read-only
     let recording = nock.recorder.play();
     nock.recorder.clear();
     nock.restore();
@@ -53,7 +59,8 @@ function afterTest (nockFileDir, nockFilePath, nockOptions, { relativeTestPath, 
     if (!fs.existsSync(nockFileDir)) {
       mkdirp.sync(nockFileDir);
     }
-    fs.writeFileSync(nockFilePath, JSON.stringify(recording, null, 2));
+    const nfp = nockFilePath();
+    fs.writeFileSync(nfp, JSON.stringify(recording, null, 2));
   }
 
   nock.cleanAll();
@@ -85,9 +92,9 @@ const bindNock = (fn, testPath, overrideTitle) => {
       title
     };
 
-    const nockFileName = `${name}_${djb2(title)}.nock.json`;
+    const nockFileName = (altName) => `${name}_${altName || djb2(title)}.nock.json`;
     const nockFileDir = path.resolve(dir, subPathName);
-    const nockFilePath = path.join(nockFileDir, nockFileName);
+    const nockFilePath = (altName) => path.join(nockFileDir, nockFileName(altName));
 
     let wrappedTest = null;
 
