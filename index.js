@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
 
-const subPathName = '__nocks__';
+const defaults = { fixturePath: '__nocks__' };
 
 function beforeTest (nockFilePath, nockOptions) {
   if (process.env.JEST_NOCK_RECORD === 'true') {
@@ -64,7 +64,7 @@ const getNockOptions = (args) => {
   return args[args.length - 1];
 }
 
-const bindNock = (fn, testPath, overrideTitle) => {
+const bindNock = (fn, testPath, opts, overrideTitle) => {
   return function (...args) {
     let title = args[0];
     let testFn = args[1];
@@ -86,7 +86,7 @@ const bindNock = (fn, testPath, overrideTitle) => {
     };
 
     const nockFileName = `${name}_${djb2(title)}.nock.json`;
-    const nockFileDir = path.resolve(dir, subPathName);
+    const nockFileDir = path.resolve(dir, opts.fixturePath);
     const nockFilePath = path.join(nockFileDir, nockFileName);
 
     let wrappedTest = null;
@@ -139,14 +139,15 @@ function djb2 (str) {
   return hash >>> 0;
 }
 
-function upgradeJasmine (jsmn, glb) {
+function upgradeJasmine (jsmn, glb, options = {}) {
+  const opts = Object.assign(defaults, options)
   const env = jsmn.getEnv();
   const testPath = jsmn.testPath;
 
-  glb.it.nock = bindNock(env.it, testPath);
-  glb.fit.nock = bindNock(env.fit, testPath);
-  glb.beforeAll.nock = bindNock(env.beforeAll, testPath, 'beforeAll');
-  glb.afterAll.nock = bindNock(env.afterAll, testPath, 'afterAll');
+  glb.it.nock = bindNock(env.it, testPath, opts);
+  glb.fit.nock = bindNock(env.fit, testPath, opts);
+  glb.beforeAll.nock = bindNock(env.beforeAll, testPath, opts, 'beforeAll');
+  glb.afterAll.nock = bindNock(env.afterAll, testPath, opts, 'afterAll');
 }
 
 module.exports = {
