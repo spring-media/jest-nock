@@ -8,11 +8,158 @@ const nock = require('nock');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
+const { inspect } = require('util');
+const { default: EventSourceMock, sources: globalEventSources } = require('eventsourcemock');
+// SSE Recording
+const EventSource = require('eventsource');
 
-const subPathName = '__nocks__';
+global.EventSource = EventSource;
+global.window.EventSource = EventSource;
 
-function beforeTest (nockFilePath, nockOptions) {
-  if (process.env.JEST_NOCK_RECORD === 'true') {
+const subPathName = process.env.NOCK_PATH_NAME || '__nocks__';
+const OriginalEventSource = global.EventSource;
+const isRecordMode = () => process.env.JEST_NOCK_RECORD === 'true';
+
+const usedTitles = {};
+const capturedRecords = {};
+let currentRecords = {};
+
+function createSSEInstance() {
+  const SSE = {
+    eventSources: {
+      sources: [],
+      capturedEvents: [],
+      recordedEvents: [],
+      resolveNextEvent: null,
+      addSource(url, source) {
+        this.sources.push(source);
+
+        if (isRecordMode()) {
+          source.addEventListener('message', (evt) => {
+            this.capturedEvents.push(evt);
+            if (this.resolveNextEvent) {
+              this.resolveNextEvent();
+            }
+          });
+          source.addEventListener('error', (err) => {
+            const error = new Error(`SSE Recording error for ${url}: ${err.message || inspect(err)}`);
+            console.error(error); // eslint-disable-line no-console
+          });
+        } else {
+          source.emitOpen();
+        }
+      },
+      waitForEvent() {
+        return new Promise((resolve) => {
+          if (this.capturedEvents.length === 0) {
+            this.resolveNextEvent = () => {
+              this.recordedEvents.push(this.capturedEvents.shift());
+              this.resolveNextEvent = null;
+              resolve();
+            };
+            return;
+          }
+          this.recordedEvents.push(this.capturedEvents.shift());
+          resolve();
+        });
+      },
+      replayNext({ delay = 0 }) {
+        if (this.recordedEvents.length === 0) {
+          const err = new Error('No recorded Events to replay');
+          const newStack = err.stack.split('\n');
+          newStack.splice(1, 1);
+          err.stack = newStack.join('\n');
+          return Promise.reject(err);
+        }
+
+        const event = this.recordedEvents.shift();
+
+        return new Promise((resolve, reject) => {
+          try {
+            const { type, data, origin } = event;
+            const messageEvent = new MessageEvent(type, {
+              data,
+            });
+
+            setTimeout(() => {
+              try {
+                resolve();
+                globalEventSources[origin].emit(messageEvent.type, messageEvent);
+              } catch (err) {
+                reject(err);
+              }
+            }, delay);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      },
+    },
+    destroy() {
+      if (isRecordMode()) {
+        for (const source of this.eventSources.sources) {
+          source.close();
+        }
+      }
+    },
+    replay(options = {}) {
+      if (isRecordMode()) {
+        const possibleErr = new Error('Timeout waiting for SSE to record');
+
+        return new Promise((resolve, reject) => {
+          let resolved = false;
+          const timeout = setTimeout(() => {
+            if (resolved) {
+              return;
+            }
+            resolved = true;
+            const newStack = possibleErr.stack.split('\n');
+            newStack.splice(1, 1);
+            possibleErr.stack = newStack.join('\n');
+            reject(possibleErr);
+          }, 3000);
+          const done = (err) => {
+            if (resolved) {
+              return;
+            }
+            resolved = true;
+            if (err) {
+              reject(err);
+              return;
+            }
+            clearTimeout(timeout);
+            resolve();
+          };
+          this.eventSources
+            .waitForEvent()
+            .then(done)
+            .catch(done);
+        });
+      }
+      return this.eventSources.replayNext(options);
+    },
+  };
+
+  return SSE;
+}
+
+function beforeTest(SSE, nockOptions, { title }) {
+  function MockEventSource(sourceUrl, opts) {
+    let source = null;
+
+    if (isRecordMode()) {
+      source = new OriginalEventSource(sourceUrl, opts);
+    } else {
+      source = new EventSourceMock(sourceUrl, opts);
+    }
+
+    SSE.eventSources.addSource(sourceUrl, source);
+    return source;
+  }
+
+  global.EventSource = MockEventSource;
+
+  if (isRecordMode()) {
     nock.recorder.rec({
       /* eslint-disable camelcase */
       dont_print: true,
@@ -20,101 +167,147 @@ function beforeTest (nockFilePath, nockOptions) {
       /* eslint-enable camelcase */
     });
   } else {
-    if (fs.existsSync(nockFilePath)) {
-      const defs = nock.loadDefs(nockFilePath);
-      nock.define(defs);
-    }
+    const { API: recordedAPI, SSE: recordedSSE } = currentRecords[title];
+
+    // Make recorded SSE available in replay mode
+    Object.assign(SSE.eventSources, {
+      recordedEvents: [...recordedSSE],
+    });
+
+    // Make recorded API available in replay mode
+    nock.define(recordedAPI);
+
     nock.disableNetConnect();
 
+    if (!nock.isActive()) {
+      nock.activate();
+    }
+
     if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
-      nockOptions.enableNetConnect.forEach(stringOrRegEx => nock.enableNetConnect(stringOrRegEx));
+      nockOptions.enableNetConnect.forEach((stringOrRegEx) => nock.enableNetConnect(stringOrRegEx));
     }
   }
 }
 
-function afterTest (nockFileDir, nockFilePath, nockOptions, { relativeTestPath, title }) {
-  if (process.env.JEST_NOCK_RECORD === 'true') {
+function afterTest(SSE, nockOptions, { relativeTestPath, title }) {
+  if (isRecordMode()) {
     let recording = nock.recorder.play();
     nock.recorder.clear();
     nock.restore();
 
     if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
-      recording = recording
-        .filter((item) => nockOptions.enableNetConnect
-          .find((enabled) => !item.scope.match(enabled))
-        )
+      recording = recording.filter((item) =>
+        nockOptions.enableNetConnect.find((enabled) => !item.scope.match(enabled)),
+      );
     }
 
-    if (recording.length === 0) {
-      console.warn(`jest-nock: Empty recording for "${title}" in "${relativeTestPath}".`)
-      return;
+    capturedRecords[title] = { API: [], SSE: [] };
+
+    if (recording.length > 0) {
+      capturedRecords[title].API = recording;
     }
 
-    if (!fs.existsSync(nockFileDir)) {
-      mkdirp.sync(nockFileDir);
+    if (SSE.eventSources.recordedEvents.length > 0) {
+      capturedRecords[title].SSE = SSE.eventSources.recordedEvents;
     }
-    fs.writeFileSync(nockFilePath, JSON.stringify(recording, null, 2));
+
+    if (recording.length === 0 && SSE.eventSources.recordedEvents.length === 0) {
+      console.warn(`jest-nock: Empty recording for "${title}" in "${relativeTestPath}".`); // eslint-disable-line no-console
+    }
   }
-
+  // TODO: Warn when there were SSE not being recorded
+  // TODO: Warn when there were events recorded, not being replayed during test run
+  SSE.destroy();
   nock.cleanAll();
   nock.enableNetConnect();
 }
 
 const getNockOptions = (args) => {
   return args[args.length - 1];
-}
+};
 
-const bindNock = (fn, testPath, overrideTitle) => {
-  return function (...args) {
+const bindNock = (fn, overrideTitle) => {
+  return function test(...args) {
     let title = args[0];
-    let testFn = args[1];
+    let testFnWrapper = args[1];
     let timeout = args[2];
     const fnArgs = [];
 
     if (typeof args[0] === 'function') {
       title = overrideTitle || 'default';
-      testFn = args[0];
-      timeout = args[1];
+      [testFnWrapper, timeout] = args;
     } else {
       fnArgs.push(title);
     }
 
-    const { dir, name } = path.parse(testPath);
-    const afterTestInfo = {
-      relativeTestPath: path.relative(process.cwd(), testPath),
-      title
+    if (usedTitles[title]) {
+      usedTitles[title] += 1;
+    } else {
+      usedTitles[title] = 1;
+    }
+
+    const testInfo = {
+      relativeTestPath: path.relative(process.cwd(), global.__TESTPATH),
+      title: `${title} - ${usedTitles[title]}`,
     };
 
-    const nockFileName = `${name}_${djb2(title)}.nock.json`;
-    const nockFileDir = path.resolve(dir, subPathName);
-    const nockFilePath = path.join(nockFileDir, nockFileName);
+    let testFn = null;
+    const SSE = createSSEInstance();
+
+    try {
+      testFn = testFnWrapper({ SSE });
+    } catch (err) {
+      testFn = null;
+    }
+
+    if (typeof testFn !== 'function') {
+      const msg =
+        'Using `.nock` you need to wrap your test in a function. Example:\n' +
+        'test("should...", () => (done) => done())';
+      const err = new TypeError(msg);
+      const newStack = err.stack.split('\n');
+      newStack.splice(2, 1);
+      err.stack = newStack.join('\n');
+      throw err;
+    }
 
     let wrappedTest = null;
 
     if (testFn.length >= 1) {
-      wrappedTest = done => {
+      wrappedTest = async (done) => {
         const nockOptions = getNockOptions(args);
+        let testDone = false;
 
-        beforeTest(nockFilePath, nockOptions);
-        const wrappedDone = err => {
-          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
+        beforeTest(SSE, nockOptions, testInfo);
+        const wrappedDone = (err) => {
+          if (testDone) {
+            throw new Error('Done called in async test or called multiple times');
+          }
+          testDone = true;
+          afterTest(SSE, nockOptions, testInfo);
           done(err);
         };
 
-        return testFn(wrappedDone);
-      };
-    } else {
-      wrappedTest = async (...testArgs) => {
-        const nockOptions = getNockOptions(args);
-
-        beforeTest(nockFilePath, nockOptions);
         try {
-          const result = await testFn(...testArgs);
-
-          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
+          const result = await testFn(wrappedDone);
           return result;
         } catch (err) {
-          afterTest(nockFileDir, nockFilePath, nockOptions, afterTestInfo);
+          afterTest(SSE, nockOptions, testInfo);
+          throw err;
+        }
+      };
+    } else {
+      wrappedTest = async () => {
+        const nockOptions = getNockOptions(args);
+
+        beforeTest(SSE, nockOptions, testInfo);
+        try {
+          const result = await testFn();
+          afterTest(SSE, nockOptions, testInfo);
+
+          return result;
+        } catch (err) {
+          afterTest(SSE, nockOptions, testInfo);
           throw err;
         }
       };
@@ -129,26 +322,62 @@ const bindNock = (fn, testPath, overrideTitle) => {
   };
 };
 
-function djb2 (str) {
-  let hash = 5381;
+function initRecording({ beforeAll, afterAll }) {
+  beforeAll(() => {
+    const { name, dir } = path.parse(global.__TESTPATH);
+    const nockFileName = `${name}.nock.json`;
+    const nockFileDir = path.resolve(dir, subPathName);
+    const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
 
-  for (let i = str.length; i >= 0; --i) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
+    if (fs.existsSync(nockFilePath)) {
+      currentRecords = require(nockFilePath); // eslint-disable-line global-require, import/no-dynamic-require
+    }
+  });
 
-  return hash >>> 0;
+  afterAll(() => {
+    const { name, dir } = path.parse(global.__TESTPATH);
+    const nockFileName = `${name}.nock.json`;
+    const nockFileDir = path.resolve(dir, subPathName);
+    const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
+
+    if (isRecordMode()) {
+      // TODO: use --update to delete unused records
+      fs.writeFileSync(nockFilePath, JSON.stringify({ ...currentRecords, ...capturedRecords }, null, 2));
+
+      mkdirp.sync(nockFileDir);
+    }
+  });
 }
 
-function upgradeJasmine (jsmn, glb) {
-  const env = jsmn.getEnv();
-  const testPath = jsmn.testPath;
+// Note: Circus does not expose a test file path like `jasmine.testPath`,
+// using this method `global.__TESTPATH` needs to be set manually.
+function upgradeCircus(glb) {
+  const { test, it, fit, beforeAll, afterAll } = glb;
 
-  glb.it.nock = bindNock(env.it, testPath);
-  glb.fit.nock = bindNock(env.fit, testPath);
-  glb.beforeAll.nock = bindNock(env.beforeAll, testPath, 'beforeAll');
-  glb.afterAll.nock = bindNock(env.afterAll, testPath, 'afterAll');
+  test.nock = bindNock(test);
+  it.nock = bindNock(it);
+  fit.nock = bindNock(fit);
+  beforeAll.nock = bindNock(beforeAll, 'beforeAll');
+  afterAll.nock = bindNock(afterAll, 'afterAll');
+
+  initRecording(glb);
+
+  Object.assign(glb, { it, fit, beforeAll, afterAll });
+}
+
+function upgradeJasmine(glb) {
+	const env = glb.jasmine.getEnv();
+	global.__TESTPATH = glb.jasmine.testPath;
+	glb.it.nock = bindNock(env.it);
+	glb.fit.nock = bindNock(env.fit);
+	glb.beforeAll.nock = bindNock(env.beforeAll, 'beforeAll');
+  glb.afterAll.nock = bindNock(env.afterAll, 'afterAll');
+  
+  initRecording(glb);
 }
 
 module.exports = {
+  upgradeCircus,
   upgradeJasmine,
+  isRecordMode,
 };
