@@ -1,3 +1,5 @@
 const { upgradeJasmine } = require('./');
 
-upgradeJasmine(global);
+upgradeJasmine(global, {
+  writeAfterEach: true,
+});

@@ -14,7 +14,9 @@ const { default: EventSourceMock, sources: globalEventSources } = require('event
 const EventSource = require('eventsource');
 
 global.EventSource = EventSource;
-global.window.EventSource = EventSource;
+if (typeof global.window === 'object') {
+  global.window.EventSource = EventSource;
+}
 
 const subPathName = process.env.NOCK_PATH_NAME || '__nocks__';
 const OriginalEventSource = global.EventSource;
@@ -322,36 +324,48 @@ const bindNock = (fn, overrideTitle) => {
   };
 };
 
-function initRecording({ beforeAll, afterAll }) {
+function writeOutRecording() {
+  const { name, dir } = path.parse(global.__TESTPATH);
+  const nockFileName = `${name}.nock.json`;
+  const nockFileDir = path.resolve(dir, subPathName);
+  const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
+  
+  if (isRecordMode()) {
+    mkdirp.sync(nockFileDir);
+    
+    // TODO: use --update to delete unused records
+    fs.writeFileSync(nockFilePath, JSON.stringify({ ...currentRecords, ...capturedRecords }, null, 2));
+  }
+}
+
+function initRecording({ beforeAll, afterAll }, { writeAfterEach }) {
   beforeAll(() => {
     const { name, dir } = path.parse(global.__TESTPATH);
     const nockFileName = `${name}.nock.json`;
     const nockFileDir = path.resolve(dir, subPathName);
     const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
-
+    
     if (fs.existsSync(nockFilePath)) {
       currentRecords = require(nockFilePath); // eslint-disable-line global-require, import/no-dynamic-require
     }
   });
 
-  afterAll(() => {
-    const { name, dir } = path.parse(global.__TESTPATH);
-    const nockFileName = `${name}.nock.json`;
-    const nockFileDir = path.resolve(dir, subPathName);
-    const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
-
-    if (isRecordMode()) {
-      // TODO: use --update to delete unused records
-      fs.writeFileSync(nockFilePath, JSON.stringify({ ...currentRecords, ...capturedRecords }, null, 2));
-
-      mkdirp.sync(nockFileDir);
-    }
-  });
+  // Note: To test the tool itself, we need to be able to optionally write out recordings
+  // after every test, to load them in following tests.
+  if (writeAfterEach) {
+    afterEach(() => {
+      writeOutRecording();
+    });
+  } else {
+    afterAll(() => {
+      writeOutRecording();
+    });
+  }
 }
 
 // Note: Circus does not expose a test file path like `jasmine.testPath`,
 // using this method `global.__TESTPATH` needs to be set manually.
-function upgradeCircus(glb) {
+function upgradeCircus(glb, options) {
   const { test, it, fit, beforeAll, afterAll } = glb;
 
   test.nock = bindNock(test);
@@ -360,12 +374,12 @@ function upgradeCircus(glb) {
   beforeAll.nock = bindNock(beforeAll, 'beforeAll');
   afterAll.nock = bindNock(afterAll, 'afterAll');
 
-  initRecording(glb);
+  initRecording(glb, options);
 
   Object.assign(glb, { it, fit, beforeAll, afterAll });
 }
 
-function upgradeJasmine(glb) {
+function upgradeJasmine(glb, options) {
 	const env = glb.jasmine.getEnv();
 	global.__TESTPATH = glb.jasmine.testPath;
 	glb.it.nock = bindNock(env.it);
@@ -373,7 +387,7 @@ function upgradeJasmine(glb) {
 	glb.beforeAll.nock = bindNock(env.beforeAll, 'beforeAll');
   glb.afterAll.nock = bindNock(env.afterAll, 'afterAll');
   
-  initRecording(glb);
+  initRecording(glb, options);
 }
 
 module.exports = {
