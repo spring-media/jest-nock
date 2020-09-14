@@ -79,14 +79,13 @@ function createSSEInstance() {
         return new Promise((resolve, reject) => {
           try {
             const { type, data, origin } = event;
-            const messageEvent = new MessageEvent(type, {
-              data,
-            });
-
+            
             setTimeout(() => {
               try {
                 resolve();
-                globalEventSources[origin].emit(messageEvent.type, messageEvent);
+                globalEventSources[origin].emit(type, {
+                  data,
+                });
               } catch (err) {
                 reject(err);
               }
@@ -160,7 +159,7 @@ function beforeTest(SSE, nockOptions, { title }) {
   }
 
   global.EventSource = MockEventSource;
-
+  
   if (isRecordMode()) {
     nock.recorder.rec({
       /* eslint-disable camelcase */
@@ -169,23 +168,25 @@ function beforeTest(SSE, nockOptions, { title }) {
       /* eslint-enable camelcase */
     });
   } else {
-    const { API: recordedAPI, SSE: recordedSSE } = currentRecords[title];
+    if (currentRecords[title]) {
+      const { API: recordedAPI, SSE: recordedSSE } = currentRecords[title];
 
-    // Make recorded SSE available in replay mode
-    Object.assign(SSE.eventSources, {
-      recordedEvents: [...recordedSSE],
-    });
-
-    // Make recorded API available in replay mode
-    nock.define(recordedAPI);
-
+      // Make recorded SSE available in replay mode
+      Object.assign(SSE.eventSources, {
+        recordedEvents: [...recordedSSE],
+      });
+      
+      // Make recorded API available in replay mode
+      nock.define(recordedAPI);
+    }
+      
     nock.disableNetConnect();
 
     if (!nock.isActive()) {
       nock.activate();
     }
 
-    if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
+    if (Array.isArray(nockOptions.enableNetConnect)) {
       nockOptions.enableNetConnect.forEach((stringOrRegEx) => nock.enableNetConnect(stringOrRegEx));
     }
   }
@@ -197,7 +198,7 @@ function afterTest(SSE, nockOptions, { relativeTestPath, title }) {
     nock.recorder.clear();
     nock.restore();
 
-    if (nockOptions && Array.isArray(nockOptions.enableNetConnect)) {
+    if (Array.isArray(nockOptions.enableNetConnect)) {
       recording = recording.filter((item) =>
         nockOptions.enableNetConnect.find((enabled) => !item.scope.match(enabled)),
       );
@@ -225,7 +226,11 @@ function afterTest(SSE, nockOptions, { relativeTestPath, title }) {
 }
 
 const getNockOptions = (args) => {
-  return args[args.length - 1];
+  let opts = {}
+  if (typeof args[args.length - 1] === 'object') {
+    opts = args[args.length - 1]
+  }
+  return opts;
 };
 
 const bindNock = (fn, overrideTitle) => {
@@ -233,6 +238,7 @@ const bindNock = (fn, overrideTitle) => {
     let title = args[0];
     let testFnWrapper = args[1];
     let timeout = args[2];
+    const nockOptions = getNockOptions(args);
     const fnArgs = [];
 
     if (typeof args[0] === 'function') {
@@ -242,7 +248,11 @@ const bindNock = (fn, overrideTitle) => {
       fnArgs.push(title);
     }
 
-    if (usedTitles[title]) {
+    if (nockOptions.title) {
+      title = nockOptions.title;
+    }
+
+    if (usedTitles[title] && !nockOptions.title) {
       usedTitles[title] += 1;
     } else {
       usedTitles[title] = 1;
@@ -277,7 +287,6 @@ const bindNock = (fn, overrideTitle) => {
 
     if (testFn.length >= 1) {
       wrappedTest = async (done) => {
-        const nockOptions = getNockOptions(args);
         let testDone = false;
 
         beforeTest(SSE, nockOptions, testInfo);
@@ -300,8 +309,6 @@ const bindNock = (fn, overrideTitle) => {
       };
     } else {
       wrappedTest = async () => {
-        const nockOptions = getNockOptions(args);
-
         beforeTest(SSE, nockOptions, testInfo);
         try {
           const result = await testFn();
@@ -351,7 +358,7 @@ function initRecording({ beforeAll, afterAll }, { writeAfterEach }) {
   });
 
   // Note: To test the tool itself, we need to be able to optionally write out recordings
-  // after every test, to load them in following tests.
+  // after every test, to load them in follow up tests.
   if (writeAfterEach) {
     afterEach(() => {
       writeOutRecording();

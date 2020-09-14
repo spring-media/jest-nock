@@ -8,7 +8,6 @@ describe('Jest Nock Record', () => {
   let server = null;
 
   beforeAll(async () => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'true';
     server = await init();
   });
@@ -24,6 +23,8 @@ describe('Jest Nock Record', () => {
       done();
     });
     await SSE.replay();
+  }, {
+    title: 'record sse 1'
   });
 
   test.nock('should record API requests', () => async () => {
@@ -31,12 +32,13 @@ describe('Jest Nock Record', () => {
     const data = await res.data;
 
     expect(data).toEqual('datastring');
+  }, {
+    title: 'record api 1'
   });
 });
 
 describe('Jest Nock Replay', () => {
   beforeAll(() => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'false';
   });
 
@@ -47,6 +49,8 @@ describe('Jest Nock Replay', () => {
       done();
     });
     await SSE.replay();
+  }, {
+    title: 'record sse 1'
   });
 
   test.nock('can replay SSE with custom delay', ({ SSE }) => async (done) => {
@@ -66,6 +70,8 @@ describe('Jest Nock Replay', () => {
     await SSE.replay({
       delay: 100,
     });
+  }, {
+    title: 'record sse 1'
   });
 
   test.nock('should replay API requests', () => async () => {
@@ -73,12 +79,13 @@ describe('Jest Nock Replay', () => {
     const data = await res.data;
 
     expect(data).toEqual('datastring');
+  }, {
+    title: 'record api 1'
   });
 });
 
 describe('Jest Nock Replay no recording', () => {
   beforeAll(() => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'false';
   });
 
@@ -91,7 +98,6 @@ describe('Jest Nock Record API + SEE', () => {
   let server = null;
 
   beforeAll(async () => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'true';
     server = await init(30010);
   });
@@ -113,12 +119,13 @@ describe('Jest Nock Record API + SEE', () => {
 
     await SSE.replay();
     await eventPromise.p;
+  }, {
+    title: 'record both 1'
   });
 });
 
 describe('Jest Nock Replay API + SEE', () => {
   beforeAll(async () => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'false';
   });
 
@@ -135,6 +142,8 @@ describe('Jest Nock Replay API + SEE', () => {
 
     await SSE.replay();
     await eventPromise.p;
+  }, {
+    title: 'record both 1'
   });
 });
 
@@ -142,7 +151,6 @@ describe('Jest Nock Record Multi API + SEE', () => {
   let server = null;
 
   beforeAll(async () => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'true';
     server = await init(30011);
   });
@@ -173,12 +181,13 @@ describe('Jest Nock Record Multi API + SEE', () => {
     await SSE.replay();
     await SSE.replay();
     await eventPromise.p;
+  }, {
+    title: 'record both 2'
   });
 });
 
 describe('Jest Nock Replay Multi API + SEE', () => {
   beforeAll(async () => {
-    process.env.NOCK_FILE_PATH = path.resolve(__dirname, '__nocks__/jest-nock.test.json');
     process.env.JEST_NOCK_RECORD = 'false';
   });
 
@@ -204,6 +213,8 @@ describe('Jest Nock Replay Multi API + SEE', () => {
     await SSE.replay();
     await SSE.replay();
     await eventPromise.p;
+  }, {
+    title: 'record both 2'
   });
 });
 
