@@ -339,26 +339,38 @@ function writeOutRecording() {
   
   if (isRecordMode()) {
     mkdirp.sync(nockFileDir);
+    const out = { ...currentRecords, ...capturedRecords };
     
     // TODO: use --update to delete unused records
-    fs.writeFileSync(nockFilePath, JSON.stringify({ ...currentRecords, ...capturedRecords }, null, 2));
+    fs.writeFileSync(nockFilePath, JSON.stringify(out, null, 2));
   }
 }
 
-function initRecording({ beforeAll, afterAll }, { writeAfterEach }) {
-  beforeAll(() => {
-    const { name, dir } = path.parse(global.__TESTPATH);
-    const nockFileName = `${name}.nock.json`;
-    const nockFileDir = path.resolve(dir, subPathName);
-    const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
-    
-    if (fs.existsSync(nockFilePath)) {
-      currentRecords = require(nockFilePath); // eslint-disable-line global-require, import/no-dynamic-require
-    }
-  });
+function loadRecording() {
+  const { name, dir } = path.parse(global.__TESTPATH);
+  const nockFileName = `${name}.nock.json`;
+  const nockFileDir = path.resolve(dir, subPathName);
+  const nockFilePath = process.env.NOCK_FILE_PATH || path.join(nockFileDir, nockFileName);
 
-  // Note: To test the tool itself, we need to be able to optionally write out recordings
-  // after every test, to load them in follow up tests.
+  if (fs.existsSync(nockFilePath)) {
+    const fileContents = fs.readFileSync(nockFilePath);
+    currentRecords = JSON.parse(fileContents); 
+  }
+}
+
+function initRecording({ beforeAll, afterAll }, { writeAfterEach, loadAfterEach }) {
+  // Note: To test the tool itself, we need to be able to optionally write/load recordings
+  // after/before every test, to use them in follow up tests.
+  if (writeAfterEach) {
+    beforeEach(() => {
+      loadRecording();
+    });
+  } else {
+    beforeAll(() => {
+      loadRecording();
+    });
+  }
+
   if (writeAfterEach) {
     afterEach(() => {
       writeOutRecording();
