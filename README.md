@@ -37,11 +37,9 @@ upgradeJasmine(jasmine, global);
 
 Recorded requests will be stored in a folder called `__nocks__` next to the file containing the test/suite.
 
-## Acknowledgements
-- @eplawless for djb2 hash [gist](https://gist.github.com/eplawless/52813b1d8ad9af510d85)
 
 ---
-Copyright 2018 Sebastian Herrlinger (SPRING Axel Springer Digital News Media GmbH)
+Copyright 2020 Sebastian Herrlinger ([Port Blue Sky](https://www.portbluesky.com/))
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
