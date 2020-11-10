@@ -207,6 +207,17 @@ function afterTest(SSE, nockOptions, { relativeTestPath, title }) {
     capturedRecords[title] = { API: [], SSE: [] };
 
     if (recording.length > 0) {
+      if (Array.isArray(nockOptions.removeHeaders)) {
+        recording.forEach((scope) => {
+          for (const removal of nockOptions.removeHeaders) {
+            const index = scope.rawHeaders.indexOf(removal)
+            if (index !== -1) { 
+              scope.rawHeaders.splice(index, 2)
+            }
+          }
+        })
+      }
+
       capturedRecords[title].API = recording;
     }
 

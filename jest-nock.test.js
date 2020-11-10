@@ -35,6 +35,16 @@ describe('Jest Nock Record', () => {
   }, {
     title: 'record api 1'
   });
+
+  test.nock('should allow to filter recorded API request headers', () => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+    const data = await res.data;
+
+    expect(data).toEqual('datastring');
+  }, {
+    title: 'record api 2',
+    removeHeaders: ['Date']
+  });
 });
 
 describe('Jest Nock Replay', () => {
@@ -61,7 +71,7 @@ describe('Jest Nock Replay', () => {
 
       Promise.resolve()
         .then(() => {
-          expect(duration).toBeGreaterThanOrEqual(100);
+          expect(duration).toBeGreaterThanOrEqual(99);
           expect(event.data).toEqual('111');
         })
         .then(done)
@@ -81,6 +91,14 @@ describe('Jest Nock Replay', () => {
     expect(data).toEqual('datastring');
   }, {
     title: 'record api 1'
+  });
+
+  test.nock('should not replay removed headers', () => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+
+    expect(res.headers).not.toHaveProperty('date');
+  }, {
+    title: 'record api 2'
   });
 });
 
