@@ -2,8 +2,6 @@ const axios = require('axios');
 const path = require('path');
 const { init } = require('./jest-nock.event-server');
 
-global.__TESTPATH = __filename;
-
 describe('Jest Nock Record', () => {
   let server = null;
 
@@ -100,6 +98,8 @@ describe('Jest Nock Replay', () => {
   }, {
     title: 'record api 2'
   });
+
+  test.todo('removes API recordings which were not replayed');
 });
 
 describe('Jest Nock Replay no recording', () => {

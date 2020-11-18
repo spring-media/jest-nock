@@ -244,12 +244,15 @@ const getNockOptions = (args) => {
   return opts;
 };
 
-const bindNock = (fn, overrideTitle) => {
+const bindNock = (fn, overrideTitle, defaultNockOptions) => {
   return function test(...args) {
     let title = args[0];
     let testFnWrapper = args[1];
     let timeout = args[2];
-    const nockOptions = getNockOptions(args);
+    const nockOptions = {
+      ...defaultNockOptions,
+      ...getNockOptions(args)
+    };
     const fnArgs = [];
 
     if (typeof args[0] === 'function') {
@@ -395,27 +398,30 @@ function initRecording({ beforeAll, afterAll }, { writeAfterEach, loadAfterEach 
 
 // Note: Circus does not expose a test file path like `jasmine.testPath`,
 // using this method `global.__TESTPATH` needs to be set manually.
-function upgradeCircus(glb, options) {
+function upgradeCircus(glb, options = {}) {
   const { test, it, fit, beforeAll, afterAll } = glb;
+  const { nockOptions = {} } = options;
 
-  test.nock = bindNock(test);
-  it.nock = bindNock(it);
-  fit.nock = bindNock(fit);
-  beforeAll.nock = bindNock(beforeAll, 'beforeAll');
-  afterAll.nock = bindNock(afterAll, 'afterAll');
+  test.nock = bindNock(test, null, nockOptions);
+  it.nock = bindNock(it, null, nockOptions);
+  fit.nock = bindNock(fit, null, nockOptions);
+  beforeAll.nock = bindNock(beforeAll, 'beforeAll', nockOptions);
+  afterAll.nock = bindNock(afterAll, 'afterAll', nockOptions);
 
   initRecording(glb, options);
 
   Object.assign(glb, { it, fit, beforeAll, afterAll });
 }
 
-function upgradeJasmine(glb, options) {
+function upgradeJasmine(glb, options = {}) {
 	const env = glb.jasmine.getEnv();
-	global.__TESTPATH = glb.jasmine.testPath;
-	glb.it.nock = bindNock(env.it);
-	glb.fit.nock = bindNock(env.fit);
-	glb.beforeAll.nock = bindNock(env.beforeAll, 'beforeAll');
-  glb.afterAll.nock = bindNock(env.afterAll, 'afterAll');
+	const { nockOptions = {} } = options;
+  
+  global.__TESTPATH = glb.jasmine.testPath;
+	glb.it.nock = bindNock(env.it, null, nockOptions);
+	glb.fit.nock = bindNock(env.fit, null, nockOptions);
+	glb.beforeAll.nock = bindNock(env.beforeAll, 'beforeAll', nockOptions);
+  glb.afterAll.nock = bindNock(env.afterAll, 'afterAll', nockOptions);
   
   initRecording(glb, options);
 }
