@@ -1,7 +1,7 @@
 {
   "name": "jest-nock",
   "version": "0.2.0",
-  "description": "Nock integration for Jest",
+  "description": "Automate request/SSE traffic recording and replay for tests with nock",
   "main": "index.js",
   "scripts": {
     "test": "jest --verbose"
