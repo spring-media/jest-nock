@@ -430,4 +430,5 @@ module.exports = {
   upgradeCircus,
   upgradeJasmine,
   isRecordMode,
+  nock,
 };
