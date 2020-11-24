@@ -10,6 +10,16 @@ describe('Jest Nock Record', () => {
     server = await init();
   });
 
+  // Test beforeAll hook recording
+  beforeAll.nock(() => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+    const data = await res.data;
+
+    expect(data).toEqual('datastring');
+  }, {
+    title: 'beforeAll 1'
+  });
+  
   afterAll(async () => {
     await server.stop();
   });
@@ -46,9 +56,23 @@ describe('Jest Nock Record', () => {
 });
 
 describe('Jest Nock Replay', () => {
+  process.env.JEST_NOCK_RECORD = 'false';
   beforeAll(() => {
     process.env.JEST_NOCK_RECORD = 'false';
+
+    const recording = require('./__nocks__/jest-nock.test.nock.json');
+    console.log(recording);
   });
+
+  // Test beforeAll hook replay
+  beforeAll.nock(() => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+    const data = await res.data;
+
+    expect(data).toEqual('datastring');
+  }, {
+    title: 'beforeAll 1'
+  });  
 
   test.nock('should replay server sent events (SSE)', ({ SSE }) => async (done) => {
     const source = new EventSource('http://localhost:30009');

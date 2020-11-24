@@ -269,6 +269,8 @@ const bindNock = (fn, overrideTitle, defaultNockOptions) => {
     if (usedTitles[title] && !nockOptions.title) {
       usedTitles[title] += 1;
     } else {
+      // Using an override title, we do not count up to allow using the same title for replay
+      // (used to test the tool itself currently)
       usedTitles[title] = 1;
     }
 
