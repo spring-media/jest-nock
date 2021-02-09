@@ -7,7 +7,7 @@ describe('Global Settings 2 (recording)', () => {
 
   beforeAll(async () => {
     process.env.JEST_NOCK_RECORD = 'true';
-    server = await init(30010);
+    server = await init(30011);
   });
 
   afterAll(async () => {
@@ -15,7 +15,7 @@ describe('Global Settings 2 (recording)', () => {
   });
 
   test.nock('allows to remove all headers for API recordings globally', () => async () => {
-    const res = await axios.get('http://localhost:30010/data');
+    const res = await axios.get('http://localhost:30011/data');
     const data = await res.data;
 
     expect(data).toEqual('datastring');
@@ -30,7 +30,7 @@ describe('Global Settings (replay)', () => {
   });
 
   test.nock('should not replay any globally removed headers', () => async () => {
-    const res = await axios.get('http://localhost:30010/data');
+    const res = await axios.get('http://localhost:30011/data');
 
     expect(res.headers).not.toHaveProperty('date');
   }, {
