@@ -4,6 +4,7 @@ _Automate request/SSE traffic recording and replay for tests._
 
 ![GitHub](https://img.shields.io/github/license/mashape/apistatus.svg)
 [![npm version](https://badge.fury.io/js/jest-nock.svg)](https://badge.fury.io/js/jest-nock)
+![Node.js CI](https://github.com/PortBlueSky/jest-nock/workflows/Node.js%20CI/badge.svg)
 
 Instead of mocking requests or setting up nock for every test manually,
 this setup allows to flag tests that make requests to other systems and

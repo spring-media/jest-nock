@@ -53,6 +53,16 @@ describe('Jest Nock Record', () => {
     title: 'record api 2',
     removeHeaders: ['Date']
   });
+
+  test.nock('should allow to deactivate recorded API request headers', () => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+    const data = await res.data;
+
+    expect(data).toEqual('datastring');
+  }, {
+    title: 'record api 3',
+    removeHeaders: true
+  });
 });
 
 describe('Jest Nock Replay', () => {
@@ -61,7 +71,6 @@ describe('Jest Nock Replay', () => {
     process.env.JEST_NOCK_RECORD = 'false';
 
     const recording = require('./__nocks__/jest-nock.test.nock.json');
-    console.log(recording);
   });
 
   // Test beforeAll hook replay
@@ -116,6 +125,14 @@ describe('Jest Nock Replay', () => {
   });
 
   test.nock('should not replay removed headers', () => async () => {
+    const res = await axios.get('http://localhost:30009/data');
+
+    expect(res.headers).not.toHaveProperty('date');
+  }, {
+    title: 'record api 2'
+  });
+
+  test.nock('should not replay deactivated headers', () => async () => {
     const res = await axios.get('http://localhost:30009/data');
 
     expect(res.headers).not.toHaveProperty('date');

@@ -216,6 +216,10 @@ function afterTest(SSE, nockOptions, { relativeTestPath, title }) {
             }
           }
         })
+      } else if (nockOptions.removeHeaders === true) {
+        recording.forEach((scope) => {
+          delete scope.rawHeaders;
+        })
       }
 
       capturedRecords[title].API = recording;
