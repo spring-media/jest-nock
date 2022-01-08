@@ -1,6 +1,6 @@
 {
   "name": "jest-nock",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Automate request/SSE traffic recording and replay for tests with nock",
   "main": "index.js",
   "scripts": {
